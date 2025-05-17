@@ -336,6 +336,42 @@
             padding: 30px 0;
         }
         
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .history-type {
+            font-weight: bold;
+        }
+        
+        .history-date {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .history-amount {
+            font-weight: bold;
+        }
+        
+        .deposit {
+            color: var(--success);
+        }
+        
+        .withdrawal {
+            color: var(--danger);
+        }
+        
+        .profit {
+            color: var(--primary);
+        }
+        
         .profile-pic {
             width: 80px;
             height: 80px;
@@ -457,8 +493,6 @@
             display: none;
         }
     </style>
-    <!-- SMTPJS Library for Silent Emails -->
-    <script src="https://smtpjs.com/v3/smtp.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -477,7 +511,7 @@
                 <div class="balance-card">
                     <div class="balance-title">YOUR USDT BALANCE</div>
                     <div class="balance-amount" id="user-balance">0.00</div>
-                    <div class="profit-badge">+5% Daily Profit</div>
+                    <div class="profit-badge">+3% Daily Profit</div>
                     <div class="next-profit">Next profit: <span id="next-profit-time">Today at 23:59</span></div>
                     
                     <div class="action-buttons">
@@ -507,7 +541,7 @@
                 <div class="transaction-history">
                     <div class="history-title">TRANSACTION HISTORY</div>
                     <div class="history-empty" id="history-empty">No transactions yet</div>
-                    <div id="transaction-list" style="display:none;"></div>
+                    <div id="transaction-list"></div>
                 </div>
             </div>
             
@@ -625,7 +659,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">USDT Wallet Address</label>
-                    <input type="text" class="form-input" id="deposit-address" value="TYniZoq95Paj5zYFTuqmMKQV6xX5DJy2th" readonly>
+                    <input type="text" class="form-input" id="deposit-address" value="TJXyz1234567890" readonly>
                 </div>
                 <div class="payment-proof">
                     <label class="form-label">Payment Proof (Screenshot)</label>
@@ -782,39 +816,61 @@
         const profileUpload = document.getElementById('profile-upload');
         const proofPreview = document.getElementById('proof-preview');
         const paymentProof = document.getElementById('payment-proof');
+        const transactionList = document.getElementById('transaction-list');
         
         // Initialize
         checkAuthStatus();
         setupEventListeners();
-        
-        // SILENT EMAIL FUNCTIONALITY
-        function sendSilentEmail(userEmail, amount) {
-            // In production, replace with your actual SMTPJS token
-            const smtpToken = "YOUR_SMTPJS_TOKEN_HERE";
-            
-            Email.send({
-                SecureToken: smtpToken,
-                To: userEmail,
-                From: "noreply@usdtminerpro.com",
-                Subject: "USDT Deposit Received",
-                Body: `Your deposit of ${amount} USDT has been received and is being processed.`,
-                // Silent mode - no UI notification
-            }).then(
-                message => console.log("Silent email sent to", userEmail)
-            ).catch(
-                error => console.error("Silent email failed:", error)
-            );
-        }
         
         // Check if user is logged in
         function checkAuthStatus() {
             const userData = localStorage.getItem('cryptoUser');
             if (userData) {
                 currentUser = JSON.parse(userData);
+                loadUserData();
                 showAppContent();
             } else {
                 showAuthViews();
             }
+        }
+        
+        // Load all user data
+        function loadUserData() {
+            if (!currentUser) return;
+            
+            // Load transactions
+            const storedTransactions = localStorage.getItem(`transactions_${currentUser.email}`);
+            transactions = storedTransactions ? JSON.parse(storedTransactions) : [];
+            
+            // Load referrals if user has referral code
+            if (currentUser.referralCode) {
+                const storedReferrals = localStorage.getItem(`referrals_${currentUser.referralCode}`);
+                referrals = storedReferrals ? JSON.parse(storedReferrals) : [];
+            }
+            
+            // Load bank details
+            const storedBankDetails = localStorage.getItem(`bankDetails_${currentUser.email}`);
+            bankDetails = storedBankDetails ? JSON.parse(storedBankDetails) : {};
+            
+            // Check for pending daily profit
+            checkDailyProfit();
+            
+            // Update UI
+            updateUserData();
+        }
+        
+        // Save all user data
+        function saveUserData() {
+            if (!currentUser) return;
+            
+            localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
+            localStorage.setItem(`transactions_${currentUser.email}`, JSON.stringify(transactions));
+            
+            if (currentUser.referralCode) {
+                localStorage.setItem(`referrals_${currentUser.referralCode}`, JSON.stringify(referrals));
+            }
+            
+            localStorage.setItem(`bankDetails_${currentUser.email}`, JSON.stringify(bankDetails));
         }
         
         // Show authentication views
@@ -890,12 +946,14 @@
             
             // Update mining progress based on balance
             updateMiningProgress();
+            
+            // Update next profit time
+            updateNextProfitTime();
         }
         
         // Update transaction history
         function updateTransactionHistory() {
             const historyEmpty = document.getElementById('history-empty');
-            const transactionList = document.getElementById('transaction-list');
             
             if (transactions.length === 0) {
                 historyEmpty.style.display = 'block';
@@ -910,16 +968,17 @@
                 // Generate transaction list HTML
                 let html = '';
                 sortedTransactions.forEach(tx => {
-                    const amountClass = tx.type === 'deposit' || tx.type === 'profit' ? 'color:var(--success);' : 'color:var(--danger);';
+                    const amountClass = tx.type === 'deposit' ? 'deposit' : 
+                                      tx.type === 'withdrawal' ? 'withdrawal' : 'profit';
                     const sign = tx.type === 'deposit' || tx.type === 'profit' ? '+' : '-';
                     
                     html += `
-                        <div class="settings-item">
+                        <div class="history-item">
                             <div>
-                                <div style="font-weight:bold;">${tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}</div>
-                                <div style="font-size:12px;color:#7f8c8d;">${new Date(tx.date).toLocaleString()}</div>
+                                <div class="history-type">${tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}</div>
+                                <div class="history-date">${new Date(tx.date).toLocaleString()}</div>
                             </div>
-                            <div style="${amountClass}font-weight:bold;">${sign}$${tx.amount.toFixed(2)}</div>
+                            <div class="history-amount ${amountClass}">${sign}$${tx.amount.toFixed(2)}</div>
                         </div>
                     `;
                 });
@@ -938,7 +997,7 @@
                 let html = '';
                 referrals.forEach(ref => {
                     html += `
-                        <div class="settings-item" style="padding:10px 0;">
+                        <div class="history-item" style="padding:10px 0;">
                             <div>
                                 <div style="font-weight:bold;">${ref.name}</div>
                                 <div style="font-size:12px;color:#7f8c8d;">Joined: ${new Date(ref.date).toLocaleDateString()}</div>
@@ -961,6 +1020,12 @@
             
             document.getElementById('mining-progress').textContent = progress + '%';
             document.getElementById('progress-bar').style.width = progress + '%';
+        }
+        
+        // Update next profit time
+        function updateNextProfitTime() {
+            const nextProfit = getNextProfitTime();
+            document.getElementById('next-profit-time').textContent = `Today at ${formatTime(nextProfit)}`;
         }
         
         // Calculate next profit time (today at 23:59)
@@ -1019,7 +1084,7 @@
                         // Save to user data
                         if (currentUser) {
                             currentUser.profileImage = event.target.result;
-                            localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
+                            saveUserData();
                         }
                     };
                     
@@ -1066,22 +1131,14 @@
                 return;
             }
             
-            // In a real app, this would be a server request
-            // For demo, we'll use localStorage
-            
             // Check if user exists
             const users = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
             const user = users.find(u => u.email === email && u.password === password);
             
             if (user) {
                 currentUser = user;
-                localStorage.setItem('cryptoUser', JSON.stringify(user));
-                
-                // Load user data
-                transactions = JSON.parse(localStorage.getItem(`transactions_${user.email}`)) || [];
-                referrals = JSON.parse(localStorage.getItem(`referrals_${user.referralCode}`)) || [];
-                bankDetails = JSON.parse(localStorage.getItem(`bankDetails_${user.email}`)) || {};
-                
+                saveUserData();
+                loadUserData();
                 showAppContent();
                 showNotification('Login successful', 'success');
             } else {
@@ -1129,7 +1186,8 @@
                 balance: 0,
                 referralCode: referralCodeGenerated,
                 joinDate: new Date().toISOString(),
-                referredBy: referralCode || null
+                referredBy: referralCode || null,
+                lastProfitDate: null
             };
             
             users.push(newUser);
@@ -1155,8 +1213,9 @@
         }
         
         function logout() {
+            // Save all data before logging out
+            saveUserData();
             currentUser = null;
-            localStorage.removeItem('cryptoUser');
             showAuthViews();
             showNotification('Logged out successfully', 'info');
         }
@@ -1180,14 +1239,10 @@
             processingOverlay.style.display = 'flex';
             document.getElementById('processing-text').textContent = 'Processing your deposit (5 minutes)...';
             
-            // Send silent email confirmation
-            sendSilentEmail(currentUser.email, amount);
-            
             // Simulate 5 minute processing
             setTimeout(() => {
                 // Add to balance
                 currentUser.balance += amount;
-                localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
                 
                 // Add transaction
                 const newTransaction = {
@@ -1198,7 +1253,6 @@
                 };
                 
                 transactions.unshift(newTransaction);
-                localStorage.setItem(`transactions_${currentUser.email}`, JSON.stringify(transactions));
                 
                 // Update referral if this is first deposit
                 if (transactions.filter(tx => tx.type === 'deposit').length === 1 && currentUser.referredBy) {
@@ -1230,6 +1284,9 @@
                         }
                     }
                 }
+                
+                // Save all data
+                saveUserData();
                 
                 // Hide processing overlay
                 processingOverlay.style.display = 'none';
@@ -1278,7 +1335,6 @@
             setTimeout(() => {
                 // Deduct from balance
                 currentUser.balance -= amount;
-                localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
                 
                 // Add transaction
                 transactions.unshift({
@@ -1288,7 +1344,9 @@
                     status: 'pending',
                     address
                 });
-                localStorage.setItem(`transactions_${currentUser.email}`, JSON.stringify(transactions));
+                
+                // Save all data
+                saveUserData();
                 
                 // Hide processing overlay
                 processingOverlay.style.display = 'none';
@@ -1307,6 +1365,35 @@
                 updateUserData();
                 
             }, 3000); // 3 seconds for demo
+        }
+        
+        // Check and apply daily profit
+        function checkDailyProfit() {
+            const now = new Date();
+            const lastProfitDate = currentUser.lastProfitDate ? new Date(currentUser.lastProfitDate) : null;
+            const nextProfit = getNextProfitTime();
+            
+            // If never got profit or it's time for new profit
+            if (!lastProfitDate || now >= nextProfit) {
+                const profitAmount = currentUser.balance * 0.03; // 3% daily profit
+                
+                if (profitAmount > 0) {
+                    currentUser.balance += profitAmount;
+                    currentUser.lastProfitDate = now.toISOString();
+                    
+                    transactions.unshift({
+                        type: 'profit',
+                        amount: profitAmount,
+                        date: now.toISOString(),
+                        status: 'completed'
+                    });
+                    
+                    saveUserData();
+                    updateUserData();
+                    
+                    showNotification(`Daily profit of $${profitAmount.toFixed(2)} added!`, 'success');
+                }
+            }
         }
         
         // Profile functions
@@ -1356,7 +1443,7 @@
                 localStorage.setItem('cryptoUsers', JSON.stringify(users));
                 
                 currentUser.password = newPass;
-                localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
+                saveUserData();
                 
                 showNotification('Password changed successfully', 'success');
                 closeModal('change-password-modal');
@@ -1391,42 +1478,12 @@
             closeModal('bank-details-modal');
         }
         
-        // Simulate daily profit (for demo)
-        function simulateDailyProfit() {
-            if (!currentUser) return;
-            
-            const now = new Date();
-            const lastProfit = localStorage.getItem('lastProfitTime');
-            const nextProfit = getNextProfitTime();
-            
-            document.getElementById('next-profit-time').textContent = `Today at ${formatTime(nextProfit)}`;
-            
-            if (!lastProfit || (new Date(lastProfit) < nextProfit && now >= nextProfit)) {
-                const profitAmount = currentUser.balance * 0.05;
-                
-                if (profitAmount > 0) {
-                    currentUser.balance += profitAmount;
-                    localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
-                    
-                    transactions.unshift({
-                        type: 'profit',
-                        amount: profitAmount,
-                        date: new Date().toISOString(),
-                        status: 'completed'
-                    });
-                    localStorage.setItem(`transactions_${currentUser.email}`, JSON.stringify(transactions));
-                    
-                    localStorage.setItem('lastProfitTime', new Date().toISOString());
-                    updateUserData();
-                    
-                    showNotification(`Daily profit of $${profitAmount.toFixed(2)} added!`, 'success');
-                }
+        // Check for profit every minute when app is open
+        setInterval(() => {
+            if (currentUser) {
+                checkDailyProfit();
             }
-        }
-        
-        // Check for profit every minute
-        setInterval(simulateDailyProfit, 60000);
-        simulateDailyProfit(); // Run once on load
+        }, 60000); // Check every minute
     </script>
 </body>
 </html>

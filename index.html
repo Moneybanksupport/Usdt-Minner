@@ -827,8 +827,19 @@
             const userData = localStorage.getItem('cryptoUser');
             if (userData) {
                 currentUser = JSON.parse(userData);
-                loadUserData();
-                showAppContent();
+                
+                // Verify the user still exists in the main users list
+                const users = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
+                const userExists = users.some(u => u.email === currentUser.email);
+                
+                if (userExists) {
+                    loadUserData();
+                    showAppContent();
+                } else {
+                    // User was deleted from main list, clear their data
+                    localStorage.removeItem('cryptoUser');
+                    showAuthViews();
+                }
             } else {
                 showAuthViews();
             }
@@ -837,6 +848,16 @@
         // Load all user data
         function loadUserData() {
             if (!currentUser) return;
+            
+            // Initialize balance if it doesn't exist
+            if (typeof currentUser.balance !== 'number') {
+                currentUser.balance = 0;
+            }
+            
+            // Initialize lastProfitDate if it doesn't exist
+            if (!currentUser.lastProfitDate) {
+                currentUser.lastProfitDate = null;
+            }
             
             // Load transactions
             const storedTransactions = localStorage.getItem(`transactions_${currentUser.email}`);
@@ -871,6 +892,14 @@
             }
             
             localStorage.setItem(`bankDetails_${currentUser.email}`, JSON.stringify(bankDetails));
+            
+            // Also update the user in the main users list
+            const users = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
+            const userIndex = users.findIndex(u => u.email === currentUser.email);
+            if (userIndex !== -1) {
+                users[userIndex] = currentUser;
+                localStorage.setItem('cryptoUsers', JSON.stringify(users));
+            }
         }
         
         // Show authentication views
@@ -878,6 +907,9 @@
             authViews.style.display = 'block';
             mainContent.style.display = 'none';
             showAuthView('login');
+            logoutBtn.style.display = 'none';
+            headerLoginBtn.style.display = 'block';
+            headerRegisterBtn.style.display = 'block';
         }
         
         // Show main app content
@@ -1136,7 +1168,16 @@
             const user = users.find(u => u.email === email && u.password === password);
             
             if (user) {
-                currentUser = user;
+                // Load the complete user data from localStorage if available
+                const storedUser = localStorage.getItem('cryptoUser');
+                if (storedUser) {
+                    currentUser = JSON.parse(storedUser);
+                    // Make sure we have the latest password in case it was changed
+                    currentUser.password = user.password;
+                } else {
+                    currentUser = user;
+                }
+                
                 saveUserData();
                 loadUserData();
                 showAppContent();
@@ -1214,7 +1255,9 @@
         
         function logout() {
             // Save all data before logging out
-            saveUserData();
+            if (currentUser) {
+                saveUserData();
+            }
             currentUser = null;
             showAuthViews();
             showNotification('Logged out successfully', 'info');
@@ -1305,7 +1348,7 @@
                 // Update UI
                 updateUserData();
                 
-            }, 300000); // 5 minutes in milliseconds
+            }, 3000); // Reduced to 3 seconds for demo (was 300000 - 5 minutes)
         }
         
         function processWithdrawal() {

@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>USDT Mining Wallet</title>
+    <!-- Add Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
     <style>
         :root {
             --primary: #26a17b; /* USDT green */
@@ -794,6 +799,23 @@
     <div class="notification" id="notification"></div>
     
     <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAocZO-x__GzH2hR6x7p7gwd-JKylrZ_LY",
+            authDomain: "money-bank-16212.firebaseapp.com",
+            projectId: "money-bank-16212",
+            storageBucket: "money-bank-16212.appspot.com",
+            messagingSenderId: "326345863637",
+            appId: "1:326345863637:web:96636ce8a1ce9ff3620d5c",
+            measurementId: "G-PRW0J2PQ82"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        
         // User data
         let currentUser = null;
         let transactions = [];
@@ -824,81 +846,76 @@
         
         // Check if user is logged in
         function checkAuthStatus() {
-            const userData = localStorage.getItem('cryptoUser');
-            if (userData) {
-                currentUser = JSON.parse(userData);
-                
-                // Verify the user still exists in the main users list
-                const users = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
-                const userExists = users.some(u => u.email === currentUser.email);
-                
-                if (userExists) {
-                    loadUserData();
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    // User is signed in
+                    loadUserData(user.uid);
                     showAppContent();
                 } else {
-                    // User was deleted from main list, clear their data
-                    localStorage.removeItem('cryptoUser');
+                    // No user is signed in
                     showAuthViews();
                 }
-            } else {
-                showAuthViews();
+            });
+        }
+        
+        // Load all user data from Firestore
+        async function loadUserData(userId) {
+            try {
+                // Get user document
+                const userDoc = await db.collection('users').doc(userId).get();
+                if (userDoc.exists) {
+                    currentUser = userDoc.data();
+                    currentUser.uid = userId;
+                    
+                    // Load transactions
+                    const transactionsSnapshot = await db.collection('transactions')
+                        .where('userId', '==', userId)
+                        .orderBy('date', 'desc')
+                        .get();
+                    
+                    transactions = transactionsSnapshot.docs.map(doc => doc.data());
+                    
+                    // Load referrals if user has referral code
+                    if (currentUser.referralCode) {
+                        const referralsSnapshot = await db.collection('referrals')
+                            .where('referralCode', '==', currentUser.referralCode)
+                            .get();
+                            
+                        referrals = referralsSnapshot.docs.map(doc => doc.data());
+                    }
+                    
+                    // Load bank details
+                    const bankDetailsDoc = await db.collection('bankDetails').doc(userId).get();
+                    if (bankDetailsDoc.exists) {
+                        bankDetails = bankDetailsDoc.data();
+                    } else {
+                        bankDetails = {};
+                    }
+                    
+                    // Check for pending daily profit
+                    await checkDailyProfit();
+                    
+                    // Update UI
+                    updateUserData();
+                } else {
+                    console.error("User document not found");
+                    logout();
+                }
+            } catch (error) {
+                console.error("Error loading user data:", error);
+                showNotification("Error loading data. Please try again.", "error");
             }
         }
         
-        // Load all user data
-        function loadUserData() {
-            if (!currentUser) return;
+        // Save user data to Firestore
+        async function saveUserData() {
+            if (!currentUser || !currentUser.uid) return;
             
-            // Initialize balance if it doesn't exist
-            if (typeof currentUser.balance !== 'number') {
-                currentUser.balance = 0;
-            }
-            
-            // Initialize lastProfitDate if it doesn't exist
-            if (!currentUser.lastProfitDate) {
-                currentUser.lastProfitDate = null;
-            }
-            
-            // Load transactions
-            const storedTransactions = localStorage.getItem(`transactions_${currentUser.email}`);
-            transactions = storedTransactions ? JSON.parse(storedTransactions) : [];
-            
-            // Load referrals if user has referral code
-            if (currentUser.referralCode) {
-                const storedReferrals = localStorage.getItem(`referrals_${currentUser.referralCode}`);
-                referrals = storedReferrals ? JSON.parse(storedReferrals) : [];
-            }
-            
-            // Load bank details
-            const storedBankDetails = localStorage.getItem(`bankDetails_${currentUser.email}`);
-            bankDetails = storedBankDetails ? JSON.parse(storedBankDetails) : {};
-            
-            // Check for pending daily profit
-            checkDailyProfit();
-            
-            // Update UI
-            updateUserData();
-        }
-        
-        // Save all user data
-        function saveUserData() {
-            if (!currentUser) return;
-            
-            localStorage.setItem('cryptoUser', JSON.stringify(currentUser));
-            localStorage.setItem(`transactions_${currentUser.email}`, JSON.stringify(transactions));
-            
-            if (currentUser.referralCode) {
-                localStorage.setItem(`referrals_${currentUser.referralCode}`, JSON.stringify(referrals));
-            }
-            
-            localStorage.setItem(`bankDetails_${currentUser.email}`, JSON.stringify(bankDetails));
-            
-            // Also update the user in the main users list
-            const users = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
-            const userIndex = users.findIndex(u => u.email === currentUser.email);
-            if (userIndex !== -1) {
-                users[userIndex] = currentUser;
-                localStorage.setItem('cryptoUsers', JSON.stringify(users));
+            try {
+                await db.collection('users').doc(currentUser.uid).set(currentUser, { merge: true });
+            } catch (error) {
+                console.error("Error saving user data:", error);
+                showNotification("Error saving data. Please try again.", "error");
             }
         }
         
@@ -952,21 +969,21 @@
         function updateUserData() {
             if (!currentUser) return;
             
-            balanceElement.textContent = currentUser.balance.toFixed(2);
-            document.getElementById('profile-name').textContent = currentUser.name;
-            document.getElementById('profile-email').textContent = currentUser.email;
-            document.getElementById('referral-code').textContent = currentUser.referralCode;
-            document.getElementById('referral-link').textContent = `https://usdtminer.com/ref/${currentUser.referralCode}`;
+            balanceElement.textContent = currentUser.balance ? currentUser.balance.toFixed(2) : '0.00';
+            document.getElementById('profile-name').textContent = currentUser.name || 'User Name';
+            document.getElementById('profile-email').textContent = currentUser.email || 'user@example.com';
+            document.getElementById('referral-code').textContent = currentUser.referralCode || 'USDT1234';
+            document.getElementById('referral-link').textContent = `https://usdtminer.com/ref/${currentUser.referralCode || 'USDT1234'}`;
             document.getElementById('referrals-count').textContent = referrals.length;
             
             // Calculate referral earnings (10% of referrals' deposits)
-            const referralEarnings = referrals.reduce((total, ref) => total + (ref.deposits * 0.1), 0);
+            const referralEarnings = referrals.reduce((total, ref) => total + (ref.depositAmount * 0.1), 0);
             document.getElementById('referral-earnings').textContent = referralEarnings.toFixed(2);
             
             // Update profile image if exists
-            if (currentUser.profileImage) {
+            if (currentUser.profileImageUrl) {
                 const profileImg = document.getElementById('profile-image');
-                profileImg.src = currentUser.profileImage;
+                profileImg.src = currentUser.profileImageUrl;
                 profileImg.style.display = 'block';
             }
             
@@ -994,12 +1011,9 @@
                 historyEmpty.style.display = 'none';
                 transactionList.style.display = 'block';
                 
-                // Sort by date (newest first)
-                const sortedTransactions = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
-                
                 // Generate transaction list HTML
                 let html = '';
-                sortedTransactions.forEach(tx => {
+                transactions.forEach(tx => {
                     const amountClass = tx.type === 'deposit' ? 'deposit' : 
                                       tx.type === 'withdrawal' ? 'withdrawal' : 'profit';
                     const sign = tx.type === 'deposit' || tx.type === 'profit' ? '+' : '-';
@@ -1008,7 +1022,7 @@
                         <div class="history-item">
                             <div>
                                 <div class="history-type">${tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}</div>
-                                <div class="history-date">${new Date(tx.date).toLocaleString()}</div>
+                                <div class="history-date">${new Date(tx.date.seconds * 1000).toLocaleString()}</div>
                             </div>
                             <div class="history-amount ${amountClass}">${sign}$${tx.amount.toFixed(2)}</div>
                         </div>
@@ -1031,10 +1045,10 @@
                     html += `
                         <div class="history-item" style="padding:10px 0;">
                             <div>
-                                <div style="font-weight:bold;">${ref.name}</div>
-                                <div style="font-size:12px;color:#7f8c8d;">Joined: ${new Date(ref.date).toLocaleDateString()}</div>
+                                <div style="font-weight:bold;">${ref.referredName}</div>
+                                <div style="font-size:12px;color:#7f8c8d;">Joined: ${new Date(ref.date.seconds * 1000).toLocaleDateString()}</div>
                             </div>
-                            <div style="color:var(--success);font-weight:bold;">+$${(ref.deposits * 0.1).toFixed(2)}</div>
+                            <div style="color:var(--success);font-weight:bold;">+$${(ref.depositAmount * 0.1).toFixed(2)}</div>
                         </div>
                     `;
                 });
@@ -1048,7 +1062,8 @@
             if (!currentUser) return;
             
             // Simple algorithm: every $100 adds 10% to mining progress (max 100%)
-            const progress = Math.min(Math.floor(currentUser.balance / 100) * 10, 100);
+            const balance = currentUser.balance || 0;
+            const progress = Math.min(Math.floor(balance / 100) * 10, 100);
             
             document.getElementById('mining-progress').textContent = progress + '%';
             document.getElementById('progress-bar').style.width = progress + '%';
@@ -1103,24 +1118,41 @@
         // Setup event listeners
         function setupEventListeners() {
             // Profile image upload
-            profileUpload.addEventListener('change', function(e) {
+            profileUpload.addEventListener('change', async function(e) {
                 if (e.target.files.length > 0) {
                     const file = e.target.files[0];
-                    const reader = new FileReader();
                     
-                    reader.onload = function(event) {
+                    try {
+                        // Show processing overlay
+                        processingOverlay.style.display = 'flex';
+                        document.getElementById('processing-text').textContent = 'Uploading profile picture...';
+                        
+                        // Upload file to Firebase Storage
+                        const storageRef = storage.ref();
+                        const fileRef = storageRef.child(`profile_images/${currentUser.uid}/${file.name}`);
+                        await fileRef.put(file);
+                        
+                        // Get download URL
+                        const downloadURL = await fileRef.getDownloadURL();
+                        
+                        // Update user profile with the new image URL
+                        currentUser.profileImageUrl = downloadURL;
+                        await saveUserData();
+                        
+                        // Update UI
                         const profileImg = document.getElementById('profile-image');
-                        profileImg.src = event.target.result;
+                        profileImg.src = downloadURL;
                         profileImg.style.display = 'block';
                         
-                        // Save to user data
-                        if (currentUser) {
-                            currentUser.profileImage = event.target.result;
-                            saveUserData();
-                        }
-                    };
-                    
-                    reader.readAsDataURL(file);
+                        // Hide processing overlay
+                        processingOverlay.style.display = 'none';
+                        
+                        showNotification('Profile picture updated!', 'success');
+                    } catch (error) {
+                        console.error("Error uploading profile image:", error);
+                        processingOverlay.style.display = 'none';
+                        showNotification('Error uploading profile picture', 'error');
+                    }
                 }
             });
             
@@ -1154,7 +1186,7 @@
         }
         
         // User authentication functions
-        function login() {
+        async function login() {
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
             
@@ -1163,31 +1195,35 @@
                 return;
             }
             
-            // Check if user exists
-            const users = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
-            const user = users.find(u => u.email === email && u.password === password);
-            
-            if (user) {
-                // Load the complete user data from localStorage if available
-                const storedUser = localStorage.getItem('cryptoUser');
-                if (storedUser) {
-                    currentUser = JSON.parse(storedUser);
-                    // Make sure we have the latest password in case it was changed
-                    currentUser.password = user.password;
-                } else {
-                    currentUser = user;
+            try {
+                // Show processing overlay
+                processingOverlay.style.display = 'flex';
+                document.getElementById('processing-text').textContent = 'Logging in...';
+                
+                // Sign in with Firebase Auth
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                
+                // Load user data will be handled by auth state listener
+                showNotification('Login successful', 'success');
+                
+                // Hide processing overlay
+                processingOverlay.style.display = 'none';
+            } catch (error) {
+                console.error("Login error:", error);
+                processingOverlay.style.display = 'none';
+                
+                let errorMessage = 'Login failed';
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'User not found';
+                } else if (error.code === 'auth/wrong-password') {
+                    errorMessage = 'Invalid password';
                 }
                 
-                saveUserData();
-                loadUserData();
-                showAppContent();
-                showNotification('Login successful', 'success');
-            } else {
-                showNotification('Invalid email or password', 'error');
+                showNotification(errorMessage, 'error');
             }
         }
         
-        function register() {
+        async function register() {
             const name = document.getElementById('register-name').value;
             const email = document.getElementById('register-email').value;
             const password = document.getElementById('register-password').value;
@@ -1209,62 +1245,91 @@
                 return;
             }
             
-            // Check if email already exists
-            const users = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
-            if (users.some(u => u.email === email)) {
-                showNotification('Email already registered', 'error');
-                return;
-            }
-            
-            // Generate referral code
-            const referralCodeGenerated = 'USDT' + Math.floor(1000 + Math.random() * 9000);
-            
-            // Create new user
-            const newUser = {
-                name,
-                email,
-                password,
-                balance: 0,
-                referralCode: referralCodeGenerated,
-                joinDate: new Date().toISOString(),
-                referredBy: referralCode || null,
-                lastProfitDate: null
-            };
-            
-            users.push(newUser);
-            localStorage.setItem('cryptoUsers', JSON.stringify(users));
-            
-            // If referral code was provided, track the referral
-            if (referralCode) {
-                const referringUser = users.find(u => u.referralCode === referralCode);
-                if (referringUser) {
-                    const referrals = JSON.parse(localStorage.getItem(`referrals_${referralCode}`)) || [];
-                    referrals.push({
-                        name,
-                        email,
-                        date: new Date().toISOString(),
-                        deposits: 0
-                    });
-                    localStorage.setItem(`referrals_${referralCode}`, JSON.stringify(referrals));
+            try {
+                // Show processing overlay
+                processingOverlay.style.display = 'flex';
+                document.getElementById('processing-text').textContent = 'Creating account...';
+                
+                // Create user with Firebase Auth
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                const userId = userCredential.user.uid;
+                
+                // Generate referral code
+                const referralCodeGenerated = 'USDT' + Math.floor(1000 + Math.random() * 9000);
+                
+                // Create user document in Firestore
+                const newUser = {
+                    name,
+                    email,
+                    balance: 0,
+                    referralCode: referralCodeGenerated,
+                    joinDate: firebase.firestore.FieldValue.serverTimestamp(),
+                    referredBy: referralCode || null,
+                    lastProfitDate: null
+                };
+                
+                await db.collection('users').doc(userId).set(newUser);
+                
+                // If referral code was provided, track the referral
+                if (referralCode) {
+                    // Find the referring user
+                    const referringUserQuery = await db.collection('users')
+                        .where('referralCode', '==', referralCode)
+                        .limit(1)
+                        .get();
+                    
+                    if (!referringUserQuery.empty) {
+                        const referringUser = referringUserQuery.docs[0].data();
+                        const referringUserId = referringUserQuery.docs[0].id;
+                        
+                        // Add to referrals collection
+                        await db.collection('referrals').add({
+                            referralCode,
+                            referredBy: referringUserId,
+                            referredName: name,
+                            referredEmail: email,
+                            referredUserId: userId,
+                            date: firebase.firestore.FieldValue.serverTimestamp(),
+                            depositAmount: 0
+                        });
+                    }
                 }
+                
+                // Hide processing overlay
+                processingOverlay.style.display = 'none';
+                
+                showNotification('Registration successful! Please login', 'success');
+                showAuthView('login');
+            } catch (error) {
+                console.error("Registration error:", error);
+                processingOverlay.style.display = 'none';
+                
+                let errorMessage = 'Registration failed';
+                if (error.code === 'auth/email-already-in-use') {
+                    errorMessage = 'Email already registered';
+                } else if (error.code === 'auth/weak-password') {
+                    errorMessage = 'Password is too weak';
+                }
+                
+                showNotification(errorMessage, 'error');
             }
-            
-            showNotification('Registration successful! Please login', 'success');
-            showAuthView('login');
         }
         
         function logout() {
-            // Save all data before logging out
-            if (currentUser) {
-                saveUserData();
-            }
-            currentUser = null;
-            showAuthViews();
-            showNotification('Logged out successfully', 'info');
+            auth.signOut()
+                .then(() => {
+                    currentUser = null;
+                    showAuthViews();
+                    showNotification('Logged out successfully', 'info');
+                })
+                .catch(error => {
+                    console.error("Logout error:", error);
+                    showNotification('Error logging out', 'error');
+                });
         }
         
         // Transaction functions
-        function processDeposit() {
+        async function processDeposit() {
             const amount = parseFloat(document.getElementById('deposit-amount').value);
             const proofFile = document.getElementById('payment-proof').files[0];
             
@@ -1278,58 +1343,89 @@
                 return;
             }
             
-            // Show processing overlay
-            processingOverlay.style.display = 'flex';
-            document.getElementById('processing-text').textContent = 'Processing your deposit (5 minutes)...';
-            
-            // Simulate 5 minute processing
-            setTimeout(() => {
-                // Add to balance
-                currentUser.balance += amount;
+            try {
+                // Show processing overlay
+                processingOverlay.style.display = 'flex';
+                document.getElementById('processing-text').textContent = 'Processing your deposit...';
+                
+                // Upload payment proof to Firebase Storage
+                const storageRef = storage.ref();
+                const fileRef = storageRef.child(`payment_proofs/${currentUser.uid}/${proofFile.name}`);
+                await fileRef.put(proofFile);
+                const proofUrl = await fileRef.getDownloadURL();
+                
+                // Add to user's balance
+                const newBalance = (currentUser.balance || 0) + amount;
+                await db.collection('users').doc(currentUser.uid).update({
+                    balance: newBalance
+                });
+                currentUser.balance = newBalance;
                 
                 // Add transaction
                 const newTransaction = {
+                    userId: currentUser.uid,
                     type: 'deposit',
                     amount,
-                    date: new Date().toISOString(),
-                    status: 'completed'
+                    date: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'completed',
+                    proofUrl
                 };
                 
+                await db.collection('transactions').add(newTransaction);
                 transactions.unshift(newTransaction);
                 
                 // Update referral if this is first deposit
-                if (transactions.filter(tx => tx.type === 'deposit').length === 1 && currentUser.referredBy) {
-                    const allUsers = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
-                    const referringUser = allUsers.find(u => u.referralCode === currentUser.referredBy);
+                if (currentUser.referredBy) {
+                    // Find the referring user
+                    const referringUserQuery = await db.collection('users')
+                        .where('referralCode', '==', currentUser.referredBy)
+                        .limit(1)
+                        .get();
                     
-                    if (referringUser) {
-                        const referrals = JSON.parse(localStorage.getItem(`referrals_${currentUser.referredBy}`)) || [];
-                        const referralIndex = referrals.findIndex(r => r.email === currentUser.email);
+                    if (!referringUserQuery.empty) {
+                        const referringUserId = referringUserQuery.docs[0].id;
+                        const referringUser = referringUserQuery.docs[0].data();
                         
-                        if (referralIndex !== -1) {
-                            referrals[referralIndex].deposits += amount;
-                            localStorage.setItem(`referrals_${currentUser.referredBy}`, JSON.stringify(referrals));
+                        // Update referral record
+                        const referralQuery = await db.collection('referrals')
+                            .where('referredUserId', '==', currentUser.uid)
+                            .limit(1)
+                            .get();
                             
-                            // Update referring user's balance with 10% commission
-                            referringUser.balance += amount * 0.1;
-                            localStorage.setItem('cryptoUsers', JSON.stringify(allUsers));
-                            
-                            // Add transaction for referring user
-                            const referringUserTransactions = JSON.parse(localStorage.getItem(`transactions_${referringUser.email}`)) || [];
-                            referringUserTransactions.unshift({
-                                type: 'referral',
-                                amount: amount * 0.1,
-                                date: new Date().toISOString(),
-                                status: 'completed',
-                                from: currentUser.email
+                        if (!referralQuery.empty) {
+                            const referralId = referralQuery.docs[0].id;
+                            await db.collection('referrals').doc(referralId).update({
+                                depositAmount: amount
                             });
-                            localStorage.setItem(`transactions_${referringUser.email}`, JSON.stringify(referringUserTransactions));
                         }
+                        
+                        // Calculate referral bonus (10%)
+                        const referralBonus = amount * 0.1;
+                        const newReferrerBalance = (referringUser.balance || 0) + referralBonus;
+                        
+                        // Update referring user's balance
+                        await db.collection('users').doc(referringUserId).update({
+                            balance: newReferrerBalance
+                        });
+                        
+                        // Add referral transaction for referring user
+                        await db.collection('transactions').add({
+                            userId: referringUserId,
+                            type: 'referral',
+                            amount: referralBonus,
+                            date: firebase.firestore.FieldValue.serverTimestamp(),
+                            status: 'completed',
+                            from: currentUser.email
+                        });
+                        
+                        // Reload referrals data
+                        const referralsSnapshot = await db.collection('referrals')
+                            .where('referralCode', '==', currentUser.referralCode)
+                            .get();
+                            
+                        referrals = referralsSnapshot.docs.map(doc => doc.data());
                     }
                 }
-                
-                // Save all data
-                saveUserData();
                 
                 // Hide processing overlay
                 processingOverlay.style.display = 'none';
@@ -1348,10 +1444,14 @@
                 // Update UI
                 updateUserData();
                 
-            }, 3000); // Reduced to 3 seconds for demo (was 300000 - 5 minutes)
+            } catch (error) {
+                console.error("Deposit error:", error);
+                processingOverlay.style.display = 'none';
+                showNotification('Error processing deposit', 'error');
+            }
         }
         
-        function processWithdrawal() {
+        async function processWithdrawal() {
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
             const address = document.getElementById('withdraw-address').value;
             
@@ -1360,7 +1460,7 @@
                 return;
             }
             
-            if (amount > currentUser.balance) {
+            if (amount > (currentUser.balance || 0)) {
                 showNotification('Insufficient balance', 'error');
                 return;
             }
@@ -1370,26 +1470,30 @@
                 return;
             }
             
-            // Show processing overlay with different text
-            processingOverlay.style.display = 'flex';
-            document.getElementById('processing-text').textContent = 'Your request is submitted. Please wait...';
-            
-            // Simulate processing
-            setTimeout(() => {
+            try {
+                // Show processing overlay
+                processingOverlay.style.display = 'flex';
+                document.getElementById('processing-text').textContent = 'Processing your withdrawal...';
+                
                 // Deduct from balance
-                currentUser.balance -= amount;
+                const newBalance = (currentUser.balance || 0) - amount;
+                await db.collection('users').doc(currentUser.uid).update({
+                    balance: newBalance
+                });
+                currentUser.balance = newBalance;
                 
                 // Add transaction
-                transactions.unshift({
+                const newTransaction = {
+                    userId: currentUser.uid,
                     type: 'withdrawal',
                     amount,
-                    date: new Date().toISOString(),
+                    date: firebase.firestore.FieldValue.serverTimestamp(),
                     status: 'pending',
                     address
-                });
+                };
                 
-                // Save all data
-                saveUserData();
+                await db.collection('transactions').add(newTransaction);
+                transactions.unshift(newTransaction);
                 
                 // Hide processing overlay
                 processingOverlay.style.display = 'none';
@@ -1407,34 +1511,56 @@
                 // Update UI
                 updateUserData();
                 
-            }, 3000); // 3 seconds for demo
+            } catch (error) {
+                console.error("Withdrawal error:", error);
+                processingOverlay.style.display = 'none';
+                showNotification('Error processing withdrawal', 'error');
+            }
         }
         
         // Check and apply daily profit
-        function checkDailyProfit() {
+        async function checkDailyProfit() {
+            if (!currentUser || !currentUser.uid) return;
+            
             const now = new Date();
-            const lastProfitDate = currentUser.lastProfitDate ? new Date(currentUser.lastProfitDate) : null;
+            const lastProfitDate = currentUser.lastProfitDate ? new Date(currentUser.lastProfitDate.seconds * 1000) : null;
             const nextProfit = getNextProfitTime();
             
             // If never got profit or it's time for new profit
             if (!lastProfitDate || now >= nextProfit) {
-                const profitAmount = currentUser.balance * 0.03; // 3% daily profit
+                const profitAmount = (currentUser.balance || 0) * 0.03; // 3% daily profit
                 
                 if (profitAmount > 0) {
-                    currentUser.balance += profitAmount;
-                    currentUser.lastProfitDate = now.toISOString();
-                    
-                    transactions.unshift({
-                        type: 'profit',
-                        amount: profitAmount,
-                        date: now.toISOString(),
-                        status: 'completed'
-                    });
-                    
-                    saveUserData();
-                    updateUserData();
-                    
-                    showNotification(`Daily profit of $${profitAmount.toFixed(2)} added!`, 'success');
+                    try {
+                        // Update balance
+                        const newBalance = (currentUser.balance || 0) + profitAmount;
+                        await db.collection('users').doc(currentUser.uid).update({
+                            balance: newBalance,
+                            lastProfitDate: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        
+                        currentUser.balance = newBalance;
+                        currentUser.lastProfitDate = { seconds: Math.floor(now.getTime() / 1000) };
+                        
+                        // Add transaction
+                        const newTransaction = {
+                            userId: currentUser.uid,
+                            type: 'profit',
+                            amount: profitAmount,
+                            date: firebase.firestore.FieldValue.serverTimestamp(),
+                            status: 'completed'
+                        };
+                        
+                        await db.collection('transactions').add(newTransaction);
+                        transactions.unshift(newTransaction);
+                        
+                        // Update UI
+                        updateUserData();
+                        
+                        showNotification(`Daily profit of $${profitAmount.toFixed(2)} added!`, 'success');
+                    } catch (error) {
+                        console.error("Error applying daily profit:", error);
+                    }
                 }
             }
         }
@@ -1452,18 +1578,13 @@
             showNotification('Referral link copied!', 'success');
         }
         
-        function changePassword() {
+        async function changePassword() {
             const current = document.getElementById('current-password').value;
             const newPass = document.getElementById('new-password').value;
             const confirm = document.getElementById('confirm-password').value;
             
             if (!current || !newPass || !confirm) {
                 showNotification('Please fill all fields', 'error');
-                return;
-            }
-            
-            if (current !== currentUser.password) {
-                showNotification('Current password is incorrect', 'error');
                 return;
             }
             
@@ -1477,16 +1598,25 @@
                 return;
             }
             
-            // Update password
-            const users = JSON.parse(localStorage.getItem('cryptoUsers')) || [];
-            const userIndex = users.findIndex(u => u.email === currentUser.email);
-            
-            if (userIndex !== -1) {
-                users[userIndex].password = newPass;
-                localStorage.setItem('cryptoUsers', JSON.stringify(users));
+            try {
+                // Show processing overlay
+                processingOverlay.style.display = 'flex';
+                document.getElementById('processing-text').textContent = 'Updating password...';
                 
-                currentUser.password = newPass;
-                saveUserData();
+                // Reauthenticate user
+                const user = auth.currentUser;
+                const credential = firebase.auth.EmailAuthProvider.credential(
+                    currentUser.email,
+                    current
+                );
+                
+                await user.reauthenticateWithCredential(credential);
+                
+                // Update password
+                await user.updatePassword(newPass);
+                
+                // Hide processing overlay
+                processingOverlay.style.display = 'none';
                 
                 showNotification('Password changed successfully', 'success');
                 closeModal('change-password-modal');
@@ -1495,10 +1625,20 @@
                 document.getElementById('current-password').value = '';
                 document.getElementById('new-password').value = '';
                 document.getElementById('confirm-password').value = '';
+            } catch (error) {
+                console.error("Password change error:", error);
+                processingOverlay.style.display = 'none';
+                
+                let errorMessage = 'Error changing password';
+                if (error.code === 'auth/wrong-password') {
+                    errorMessage = 'Current password is incorrect';
+                }
+                
+                showNotification(errorMessage, 'error');
             }
         }
         
-        function saveBankDetails() {
+        async function saveBankDetails() {
             const bankName = document.getElementById('bank-name').value;
             const accountNumber = document.getElementById('account-number').value;
             const accountName = document.getElementById('account-name').value;
@@ -1509,16 +1649,30 @@
                 return;
             }
             
-            bankDetails = {
-                bankName,
-                accountNumber,
-                accountName,
-                ibanSwift
-            };
-            
-            localStorage.setItem(`bankDetails_${currentUser.email}`, JSON.stringify(bankDetails));
-            showNotification('Bank details saved', 'success');
-            closeModal('bank-details-modal');
+            try {
+                // Show processing overlay
+                processingOverlay.style.display = 'flex';
+                document.getElementById('processing-text').textContent = 'Saving bank details...';
+                
+                bankDetails = {
+                    bankName,
+                    accountNumber,
+                    accountName,
+                    ibanSwift
+                };
+                
+                await db.collection('bankDetails').doc(currentUser.uid).set(bankDetails);
+                
+                // Hide processing overlay
+                processingOverlay.style.display = 'none';
+                
+                showNotification('Bank details saved', 'success');
+                closeModal('bank-details-modal');
+            } catch (error) {
+                console.error("Error saving bank details:", error);
+                processingOverlay.style.display = 'none';
+                showNotification('Error saving bank details', 'error');
+            }
         }
         
         // Check for profit every minute when app is open
